@@ -1,5 +1,7 @@
 package memory;
 
+import java.util.Objects;
+
 public class SharedMatrix {
 
     private volatile SharedVector[] vectors = {}; // underlying vectors
@@ -106,7 +108,7 @@ public class SharedMatrix {
     private void releaseAllVectorReadLocks(SharedVector[] vecs) {
         // TODO: release read locks
         for (SharedVector v : vecs) {
-            vecs[i].readUnlock();
+            v.readUnlock();
         }
     }
 
@@ -120,7 +122,7 @@ public class SharedMatrix {
     private void releaseAllVectorWriteLocks(SharedVector[] vecs) {
         // TODO: release write locks
         for (SharedVector v : vecs) {
-            vecs[i].writeUnlock();
+            v.writeUnlock();
         }
     }
 

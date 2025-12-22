@@ -4,6 +4,8 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Objects;
+import java.util.Locale;
 
 public class TiredExecutor {
 
@@ -67,7 +69,7 @@ public class TiredExecutor {
                 } catch (Throwable ignored) {
                     // keep worker alive regardless of task failure
                 } finally {
-                    cleanUp(worker)
+                    cleanUp(worker);
                 }
             };
 
@@ -77,7 +79,7 @@ public class TiredExecutor {
                 return;
             } catch (IllegalStateException e) {
                 synchronized (this) {
-                    cleanUp(worker)
+                    cleanUp(worker);
                 }
                 // retry picking a worker
             }
