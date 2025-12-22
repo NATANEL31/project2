@@ -56,7 +56,36 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
      * it throws IllegalStateException.
      */
     public void newTask(Runnable task) {
-       // TODO
+
+        java.util.Objects.requireNonNull(task, "task must not be null");
+
+        // Reserve the worker (prevents double-assignment)
+        if (!busy.compareAndSet(false, true)) {
+            throw new IllegalStateException("Worker is not ready to accept a task (busy)");
+        }
+
+        // Verify worker is alive
+        if (!alive.get()) {
+            busy.set(false);
+            throw new IllegalStateException("Worker is shutting down");
+        }
+
+        // End the current idle interval (if any) now that we got assigned work
+        long now = System.nanoTime();
+        long idleStart = idleStartTime.getAndSet(0L); // 0 means not currently idle
+        if (idleStart != 0L && idleStart <= now) {
+            timeIdle.addAndGet(now - idleStart);
+        }
+
+        if (!handoff.offer(task)) {
+            // Roll back reservation so executor can try someone else.
+            busy.set(false);
+
+            // If we couldn't enqueue, consider ourselves idle again starting now.
+            idleStartTime.compareAndSet(0L, now);
+
+            throw new IllegalStateException("Worker is not ready to accept a task (handoff full)");
+        }
     }
 
     /**
@@ -65,16 +94,65 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
      */
     public void shutdown() {
        // TODO
+       // If already shutting down, don't try again.
+        if (!alive.getAndSet(false)) {
+            return;
+        }
+        try {
+            handoff.put(POISON_PILL);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            // Best effort fallback:
+            handoff.offer(POISON_PILL);
+        }
     }
+
 
     @Override
     public void run() {
-       // TODO
+        while (true) {
+            final Runnable task;
+            try {
+                task = handoff.take(); // blocks until a task (or poison pill) arrives
+            } catch (InterruptedException e) {
+                // Ignore interrupts and keep running
+                continue;
+            }
+
+            if (task == POISON_PILL) {
+                // Close any ongoing idle interval up to now
+                long now = System.nanoTime();
+                long idleStart = idleStartTime.getAndSet(0L);
+                if (idleStart != 0L && idleStart <= now) {
+                    timeIdle.addAndGet(now - idleStart);
+                }
+
+                busy.set(false);
+                return;
+            }
+
+            // Measure only the time spent executing tasks
+            long start = System.nanoTime();
+            try {
+                task.run();
+            } catch (Throwable t) {
+                // Keep the worker alive even if a task fails
+            } finally {
+                long end = System.nanoTime();
+                timeUsed.addAndGet(end - start);
+
+                // Become idle again.
+                busy.set(false);
+                idleStartTime.set(end);
+            }
+        }
     }
 
     @Override
     public int compareTo(TiredThread o) {
         // TODO
-        return 0;
+        int c = Double.compare(this.getFatigue(), o.getFatigue());
+        if (c != 0) return c;
+        return Integer.compare(this.id, o.id);
     }
 }

@@ -1,6 +1,8 @@
 package memory;
 
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.Objects;
+
 
 public class SharedVector {
 
