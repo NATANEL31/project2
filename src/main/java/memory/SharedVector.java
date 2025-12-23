@@ -14,6 +14,8 @@ public class SharedVector {
         // TODO: store vector data and its orientation
         Objects.requireNonNull(vector, "vector must not be null");
         Objects.requireNonNull(orientation, "orientation must not be null");
+        this.vector = vector;
+        this.orientation = orientation;
     }
 
     public double get(int index) {
